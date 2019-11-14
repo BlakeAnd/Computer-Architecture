@@ -9,6 +9,7 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0] * 256
         self.register = [0] * 8
+        self.address = 0
 
     def load(self):
         """Load a program into memory."""
@@ -45,7 +46,8 @@ class CPU:
 
                 self.ram[address] = val
                 address += 1
-
+        self.reg_stackpointer = self.register[7]
+        self.reg_stackpointer = 0xf4
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
@@ -76,18 +78,56 @@ class CPU:
 
         print()
 
-    def LDI(self, register_num, value):
-        self.register[register_num] = value
+    def LDI(self):
+        register = self.ram_read(self.address+1)
+        value = self.ram_read(self.address+2)
+        self.register[register] = value
+        self.address += 3
     
-    def PRN(self, register_num):
-        print(self.register[register_num])
+    def PRN(self):
+        prn_register = self.ram_read(self.address+1)        
+        print(self.register[prn_register])
+        self.address += 2
 
-    def MULT(self, reg1, reg2):
+    def MULT(self):
+        reg1 = self.ram_read(self.address+1)
+        reg2 = self.ram_read(self.address+2) 
+        # print(reg1, reg2)      
         val1 = self.register[reg1]
         val2 = self.register[reg2]
         product = val1*val2
         self.register[reg1] = product
+        self.address += 3
 
+    def PUSH(self):
+        self.reg_stackpointer -= 1
+        register = self.ram_read(self.address+1)
+        value = self.register[register]
+        self.ram_write(self.reg_stackpointer, value)
+        self.address += 2
+    
+    def POP(self):
+        value = self.ram_read(self.reg_stackpointer)
+        register = self.ram_read(self.address+1)
+        self.register[register] = value
+        self.reg_stackpointer += 1
+        self.address += 2
+
+    def CALL(self):
+        #push the return address on to the stack
+        return_address = self.address + 2
+        self.reg_stackpointer -= 1
+        self.ram_write(self.reg_stackpointer, return_address)
+
+        # set the program address to the value in the register
+        register = self.ram_read(self.address+1)
+        self.address = self.register[register]
+
+    def RET(self):
+        # pop the return address off stack
+        # store it in the pc
+        self.address = self.ram_read(self.reg_stackpointer)
+        self.reg_stackpointer += 1
 
     def ram_read(self, address):
         value = self.ram[address]
@@ -98,31 +138,25 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        address = 0
         HALT = 1
-        LDI = 130
-        PRN = 71
-        MULT = 162
-        IR = self.ram_read(address)
+        # LDI = 130
+        # PRN = 71
+        # MULT = 162
+        IR = self.ram_read(0)
+
+        table = {
+            130: self.LDI, 
+            71: self.PRN,
+            162: self.MULT,
+            0b01000101: self.PUSH,
+            0b01000110: self.POP, 
+            0b01010000: self.CALL, 
+            0b00010001: self.RET,
+        }
 
         while IR != HALT:
-            IR = self.ram_read(address)
-            if IR == LDI:
-                register = self.ram_read(address+1)
-                value = self.ram_read(address+2)
-                self.LDI(register, value)
-                address += 3
-            elif IR == PRN:
-                prn_register = self.ram_read(address+1)
-                self.PRN(prn_register)
-                address += 2
-            elif IR == MULT:
-                mult_reg1 = self.ram_read(address+1)
-                mult_reg2 = self.ram_read(address+2)
-                self.MULT(mult_reg1, mult_reg2)
-                address += 3
-
-            # print(address, IR)
+            table[IR]()
+            IR = self.ram_read(self.address)
             
 
 
