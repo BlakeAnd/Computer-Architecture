@@ -404,7 +404,7 @@ Machine code:
 
 `JMP register`
 
-Jump to the address stored in the given register.
+Jump to the address stored in the given register. 
 
 Set the `PC` to the address stored in the given register.
 

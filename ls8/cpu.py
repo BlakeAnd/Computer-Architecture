@@ -9,6 +9,7 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0] * 256
         self.register = [0] * 8
+        self.FL = [0] * 8
         self.address = 0
 
     def load(self):
@@ -49,14 +50,57 @@ class CPU:
         self.reg_stackpointer = self.register[7]
         self.reg_stackpointer = 0xf4
 
+        self.L = 0 #self.FL[5]
+        self.G = 0 #self.FL[6]
+        self.E = 0 #self.FL[7]
+
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
-
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+        elif op == "CMP":
+            if reg_a > reg_b:
+                self.G = 1
+                self.L = 0
+                self.E = 0
+            elif reg_a < reg_b:
+                self.G = 0
+                self.L = 1
+                self.E = 0
+            elif reg_a == reg_b:
+                self.G = 0
+                self.L = 0
+                self.E = 1
+
+            self.address += 3
+
         else:
             raise Exception("Unsupported ALU operation")
+
+    def CMP(self):
+        op = "CMP"
+        rega = self.register[self.ram_read(self.address+1)]
+        regb = self.register[self.ram_read(self.address+2)]
+        self.alu(op, rega, regb)
+
+    def JMP(self):
+        self.address = self.register[self.ram_read(self.address+1)]
+        # self.address += 2
+
+    def JEQ(self):
+        if self.E == 1:
+            self.JMP()
+        else:
+            self.address += 2
+
+    def JNE(self):
+        # if self.E == 0:
+        #     self.address = self.register[self.ram_read(self.address+1)]
+        # self.address += 2
+        if self.E == 0:
+            self.JMP()
+        else:
+            self.address += 2
 
     def trace(self):
         """
@@ -129,6 +173,16 @@ class CPU:
         self.address = self.ram_read(self.reg_stackpointer)
         self.reg_stackpointer += 1
 
+    def ADD(self):
+        reg1 = self.ram_read(self.address+1)
+        reg2 = self.ram_read(self.address+2)
+        val1 = self.register[reg1]
+        val2 = self.register[reg2]
+        sum = val1 + val2
+        self.register[reg1] = sum
+        self.address += 3
+
+
     def ram_read(self, address):
         value = self.ram[address]
         return value
@@ -152,9 +206,16 @@ class CPU:
             0b01000110: self.POP, 
             0b01010000: self.CALL, 
             0b00010001: self.RET,
+            160: self.ADD,
+            0b10100111: self.CMP,
+            0b01010100: self.JMP,
+            0b01010101: self.JEQ,
+            0b01010110: self.JNE,
         }
 
         while IR != HALT:
+            # print("address", self.address, "val", self.ram_read(self.address))
+            # print("address", self.address, "val", IR)
             table[IR]()
             IR = self.ram_read(self.address)
             
